@@ -241,7 +241,13 @@ class SystemStatusWindow(QMainWindow):
 
         saved = self.settings.value("position")
 
-        self.rebuild_storage_rows({})
+        # Network sampling state must exist before the first refresh.
+        self._network_previous = {}
+        self._network_sample_time = None
+        self._network_rate_history = []
+
+        # Load settings before building the dynamic layout.
+        self.reload_settings()
 
         if isinstance(saved, QPoint):
             self.move(saved)
@@ -256,7 +262,7 @@ class SystemStatusWindow(QMainWindow):
 
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.refresh)
-        self.refresh_timer.start(500)
+        self.refresh_timer.start(self.refresh_ms)
 
         self.pulse_timer = QTimer(self)
         self.pulse_timer.timeout.connect(self.pulse_warnings)
@@ -341,18 +347,62 @@ class SystemStatusWindow(QMainWindow):
             "vpn_mode", "auto"
         )
 
+        # Apply visibility settings immediately.
+        self.rows["cpu"].label.setVisible(self.show_cpu)
+        self.rows["cpu"].value.setVisible(self.show_cpu)
+        self.rows["cpu"].extra.setVisible(self.show_cpu)
+
+        self.rows["ram"].label.setVisible(self.show_ram)
+        self.rows["ram"].value.setVisible(self.show_ram)
+        self.rows["ram"].extra.setVisible(self.show_ram)
+
+        self.rows["gpu"].label.setVisible(self.show_gpu)
+        self.rows["gpu"].value.setVisible(self.show_gpu)
+        self.rows["gpu"].extra.setVisible(self.show_gpu)
+
+        self.divider.setVisible(self.show_divider)
+
+        self.system_label.setVisible(self.show_network)
+        self.network_label.setVisible(self.show_network)
+        self.download_label.setVisible(self.show_network)
+        self.upload_label.setVisible(self.show_network)
+
+        # Apply font size immediately.
+        for row in self.rows.values():
+            font = row.label.font()
+            font.setPointSize(self.font_size)
+            row.label.setFont(font)
+
+            font = row.value.font()
+            font.setPointSize(self.font_size)
+            row.value.setFont(font)
+
+            font = row.extra.font()
+            font.setPointSize(self.font_size)
+            row.extra.setFont(font)
+
+        footer_font = self.system_label.font()
+        footer_font.setPointSize(self.font_size)
+
+        self.system_label.setFont(footer_font)
+        self.network_label.setFont(footer_font)
+        self.download_label.setFont(footer_font)
+        self.upload_label.setFont(footer_font)
+
         if hasattr(self, "refresh_timer"):
             self.refresh_timer.setInterval(
                 self.refresh_ms
             )
 
         self.rebuild_storage_rows({})
+        self.reflow_layout()
+        self.refresh()
 
     def usage_state(self, value):
-        if value >= CRITICAL_USAGE:
+        if value >= self.critical_usage:
             return "critical"
 
-        if value >= WARNING_USAGE:
+        if value >= self.warning_usage:
             return "warning"
 
         return "normal"
@@ -380,6 +430,94 @@ class SystemStatusWindow(QMainWindow):
 
         self.storage_rows = []
 
+    def reflow_layout(self):
+        y = 0
+
+        primary_rows = (
+            ("cpu", self.show_cpu),
+            ("ram", self.show_ram),
+            ("gpu", self.show_gpu),
+        )
+
+        for name, visible in primary_rows:
+            row = self.rows[name]
+
+            row.label.setVisible(visible)
+            row.value.setVisible(visible)
+            row.extra.setVisible(visible)
+
+            if visible:
+                row.label.move(0, y)
+                row.value.move(100, y)
+                row.extra.move(190, y)
+                y += 22
+
+        for row in self.storage_rows:
+            row.label.setVisible(self.show_storage)
+            row.value.setVisible(self.show_storage)
+            row.extra.setVisible(self.show_storage)
+
+            if self.show_storage:
+                row.label.move(0, y)
+                row.value.move(100, y)
+                row.extra.move(190, y)
+                y += 22
+
+        footer_visible = self.show_network
+
+        self.divider.setVisible(
+            self.show_divider and footer_visible
+        )
+
+        self.system_label.setVisible(footer_visible)
+        self.network_label.setVisible(footer_visible)
+        self.download_label.setVisible(footer_visible)
+        self.upload_label.setVisible(footer_visible)
+
+        if footer_visible:
+            self.divider.setGeometry(
+                0,
+                y + 1,
+                self.widget_width,
+                1
+            )
+
+            self.system_label.setGeometry(
+                0,
+                y + 6,
+                165,
+                22
+            )
+
+            self.network_label.setGeometry(
+                170,
+                y + 6,
+                75,
+                22
+            )
+
+            self.download_label.setGeometry(
+                245,
+                y + 6,
+                135,
+                22
+            )
+
+            self.upload_label.setGeometry(
+                380,
+                y + 6,
+                max(1, self.widget_width - 380),
+                22
+            )
+
+            height = y + 32
+        else:
+            height = max(22, y)
+
+        self.setFixedSize(
+            self.widget_width,
+            height
+        )
     def rebuild_storage_rows(self, storage):
         self.clear_storage_rows()
 
@@ -427,50 +565,7 @@ class SystemStatusWindow(QMainWindow):
                     self.storage_rows.append(row)
                     y += 22
 
-        footer_y = 66 + max(
-            1,
-            len(self.storage_rows)
-        ) * 22
-
-        self.divider.setGeometry(
-            0,
-            footer_y + 1,
-            510,
-            1
-        )
-
-        self.system_label.setGeometry(
-            0,
-            footer_y + 6,
-            165,
-            22
-        )
-
-        self.network_label.setGeometry(
-            170,
-            footer_y + 6,
-            75,
-            22
-        )
-
-        self.download_label.setGeometry(
-            245,
-            footer_y + 6,
-            135,
-            22
-        )
-
-        self.upload_label.setGeometry(
-            380,
-            footer_y + 6,
-            130,
-            22
-        )
-
-        self.setFixedSize(
-            510,
-            footer_y + 32
-        )
+        self.reflow_layout()
 
     def update_storage(self, storage):
         wanted_rows = (
@@ -904,3 +999,12 @@ window = SystemStatusWindow()
 window.show()
 
 sys.exit(app.exec())
+
+
+
+
+
+
+
+
+
