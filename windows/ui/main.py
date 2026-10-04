@@ -1,4 +1,5 @@
 ﻿import sys
+import time
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -21,6 +22,9 @@ BACKEND = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from live import collect_live
+from gpu import collect_gpu_usage
+from temperature import collect_temperatures, convert_temperature
+from settings import SettingsDialog
 
 
 WHITE = "#ffffff"
@@ -161,6 +165,15 @@ class SystemStatusWindow(QMainWindow):
             Qt.WidgetAttribute.WA_TranslucentBackground,
             True
         )
+
+        # Keep the entire transparent widget surface interactive.
+        # Child telemetry labels ignore mouse input so right-clicks
+        # and dragging are handled by the main window everywhere.
+        self.root.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents,
+            True
+        )
+
         self.setCentralWidget(self.root)
 
         self.rows = {}
@@ -192,18 +205,38 @@ class SystemStatusWindow(QMainWindow):
             self.root
         )
 
+        self.download_label = QLabel(
+            "",
+            self.root
+        )
+
+        self.upload_label = QLabel(
+            "",
+            self.root
+        )
+
         footer_font = QFont("Segoe UI", 10)
         footer_font.setBold(True)
 
         self.system_label.setFont(footer_font)
         self.network_label.setFont(footer_font)
+        self.download_label.setFont(footer_font)
+        self.upload_label.setFont(footer_font)
 
         self.system_label.setStyleSheet(
             "color: white; background: transparent;"
         )
 
         self.network_label.setStyleSheet(
-            "color: white; background: transparent;"
+            "color: #28d7d7; background: transparent;"
+        )
+
+        self.download_label.setStyleSheet(
+            "color: #39ff14; background: transparent;"
+        )
+
+        self.upload_label.setStyleSheet(
+            "color: #39ff14; background: transparent;"
         )
 
         saved = self.settings.value("position")
@@ -219,6 +252,8 @@ class SystemStatusWindow(QMainWindow):
                 screen.top() + 20
             )
 
+        self.reload_settings()
+
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.refresh)
         self.refresh_timer.start(500)
@@ -227,7 +262,91 @@ class SystemStatusWindow(QMainWindow):
         self.pulse_timer.timeout.connect(self.pulse_warnings)
         self.pulse_timer.start(550)
 
+        self._network_previous = {}
+        self._network_sample_time = None
+        self._network_rate_history = []
+
         self.refresh()
+
+    def reload_settings(self):
+        self.storage_mode = self.settings.value(
+            "storage_mode", "all"
+        )
+
+        self.warning_usage = self.settings.value(
+            "warning_usage", 75, type=int
+        )
+
+        self.critical_usage = self.settings.value(
+            "critical_usage", 90, type=int
+        )
+
+        self.warning_color = self.settings.value(
+            "warning_color", "#ff9d00"
+        )
+
+        self.critical_color = self.settings.value(
+            "critical_color", "#ff3030"
+        )
+
+        self.temperature_unit = self.settings.value(
+            "temperature_unit", "C"
+        )
+
+        self.show_cpu_temperature = self.settings.value(
+            "show_cpu_temperature", True, type=bool
+        )
+
+        self.show_gpu_temperature = self.settings.value(
+            "show_gpu_temperature", True, type=bool
+        )
+
+        self.refresh_ms = self.settings.value(
+            "refresh_ms", 500, type=int
+        )
+
+        self.widget_width = self.settings.value(
+            "widget_width", 510, type=int
+        )
+
+        self.font_size = self.settings.value(
+            "font_size", 10, type=int
+        )
+
+        self.show_cpu = self.settings.value(
+            "show_cpu", True, type=bool
+        )
+
+        self.show_ram = self.settings.value(
+            "show_ram", True, type=bool
+        )
+
+        self.show_gpu = self.settings.value(
+            "show_gpu", True, type=bool
+        )
+
+        self.show_storage = self.settings.value(
+            "show_storage", True, type=bool
+        )
+
+        self.show_network = self.settings.value(
+            "show_network", True, type=bool
+        )
+
+        self.show_divider = self.settings.value(
+            "show_divider", True, type=bool
+        )
+
+        self.vpn_mode = self.settings.value(
+            "vpn_mode", "auto"
+        )
+
+        if hasattr(self, "refresh_timer"):
+            self.refresh_timer.setInterval(
+                self.refresh_ms
+            )
+
+        self.rebuild_storage_rows({})
 
     def usage_state(self, value):
         if value >= CRITICAL_USAGE:
@@ -330,7 +449,21 @@ class SystemStatusWindow(QMainWindow):
         self.network_label.setGeometry(
             170,
             footer_y + 6,
-            330,
+            75,
+            22
+        )
+
+        self.download_label.setGeometry(
+            245,
+            footer_y + 6,
+            135,
+            22
+        )
+
+        self.upload_label.setGeometry(
+            380,
+            footer_y + 6,
+            130,
             22
         )
 
@@ -408,6 +541,9 @@ class SystemStatusWindow(QMainWindow):
         physical_connected = False
         tunnel_connected = False
 
+        active_name = None
+        active_data = None
+
         for name, data in network.items():
             if not data.get("up"):
                 continue
@@ -415,20 +551,29 @@ class SystemStatusWindow(QMainWindow):
             lower = name.lower()
 
             if (
-                "tailscale" in lower or
-                "proton" in lower or
-                "vpn" in lower or
-                "wireguard" in lower
+                "proton" in lower
+                or "vpn" in lower
+                or "wireguard" in lower
             ):
                 tunnel_connected = True
 
-            if not data.get("virtual", False):
-                if (
-                    "ethernet" in lower or
-                    "wi-fi" in lower or
-                    "wifi" in lower
-                ):
-                    physical_connected = True
+            if data.get("virtual", False):
+                continue
+
+            if (
+                "loopback" in lower
+                or "bluetooth" in lower
+            ):
+                continue
+
+            if data.get("speed_mbps", 0) <= 0:
+                continue
+
+            physical_connected = True
+
+            if active_data is None:
+                active_name = name
+                active_data = data
 
         if not physical_connected:
             state = "OFFLINE"
@@ -437,20 +582,155 @@ class SystemStatusWindow(QMainWindow):
             state = "SECURE"
             color = SECURE
         else:
-            state = "CONNECTED"
+            state = "ONLINE"
             color = WHITE
 
-        self.network_label.setText(state)
-        self.network_label.setStyleSheet(
-            f"color: {color}; background: transparent;"
+        download_rate = 0.0
+        upload_rate = 0.0
+
+        now = time.monotonic()
+
+        if active_name is not None:
+            received = active_data.get(
+                "bytes_received", 0
+            )
+            sent = active_data.get(
+                "bytes_sent", 0
+            )
+
+            previous = self._network_previous.get(
+                active_name
+            )
+
+            if (
+                previous is not None
+                and self._network_sample_time is not None
+            ):
+                elapsed = (
+                    now - self._network_sample_time
+                )
+
+                if elapsed > 0:
+                    download_rate = max(
+                        0,
+                        received - previous[0]
+                    ) / elapsed
+
+                    upload_rate = max(
+                        0,
+                        sent - previous[1]
+                    ) / elapsed
+
+            self._network_previous = {
+                active_name: (received, sent)
+            }
+
+        self._network_sample_time = now
+
+        # Keep a rolling three-second throughput history.
+        self._network_rate_history.append(
+            (now, download_rate, upload_rate)
         )
 
+        cutoff = now - 3.0
+
+        self._network_rate_history = [
+            sample
+            for sample in self._network_rate_history
+            if sample[0] >= cutoff
+        ]
+
+        if self._network_rate_history:
+            download_rate = sum(
+                sample[1]
+                for sample in self._network_rate_history
+            ) / len(self._network_rate_history)
+
+            upload_rate = sum(
+                sample[2]
+                for sample in self._network_rate_history
+            ) / len(self._network_rate_history)
+
+        def format_rate(value):
+            if value >= 1024 ** 2:
+                return (
+                    f"{value / (1024 ** 2):.1f} MB/s"
+                )
+
+            if value >= 1024:
+                return (
+                    f"{value / 1024:.0f} KB/s"
+                )
+
+            return f"{value:.0f} B/s"
+
+        self.network_label.setText(state)
+
+        self.download_label.setText(
+            f"↓ {format_rate(download_rate)}"
+        )
+
+        self.upload_label.setText(
+            f"↑ {format_rate(upload_rate)}"
+        )
+
+        if state == "SECURE":
+            status_color = "#39ff14"
+        elif state == "OFFLINE":
+            status_color = "#ff3030"
+        else:
+            status_color = "#28d7d7"
+
+        self.network_label.setStyleSheet(
+            f"color: {status_color}; "
+            "background: transparent;"
+        )
+
+        self.download_label.setStyleSheet(
+            "color: #39ff14; "
+            "background: transparent;"
+        )
+
+        self.upload_label.setStyleSheet(
+            "color: #39ff14; "
+            "background: transparent;"
+        )
     def refresh(self):
         live = collect_live()
 
+        temperatures = collect_temperatures()
+
+        cpu_extra = ""
+        gpu_extra = ""
+
+        if self.show_cpu_temperature:
+            cpu_temp = convert_temperature(
+                temperatures["cpu_c"],
+                self.temperature_unit
+            )
+
+            if cpu_temp is not None:
+                cpu_extra = (
+                    f"{cpu_temp:.0f}°"
+                    f"{self.temperature_unit.upper()}"
+                )
+
+        if self.show_gpu_temperature:
+            gpu_temp = convert_temperature(
+                temperatures["gpu_c"],
+                self.temperature_unit
+            )
+
+            if gpu_temp is not None:
+                gpu_extra = (
+                    f"{gpu_temp:.0f}°"
+                    f"{self.temperature_unit.upper()}"
+                )
+
         self.update_row(
             self.rows["cpu"],
-            live["cpu"]["usage_percent"]
+            live["cpu"]["usage_percent"],
+            cpu_extra
         )
 
         self.update_row(
@@ -458,10 +738,12 @@ class SystemStatusWindow(QMainWindow):
             live["memory"]["usage_percent"]
         )
 
-        # Windows GPU utilization provider comes next.
+        gpu_usage = collect_gpu_usage()
+
         self.update_row(
             self.rows["gpu"],
-            0.0
+            gpu_usage if gpu_usage is not None else 0.0,
+            gpu_extra
         )
 
         storage = live.get(
@@ -507,6 +789,12 @@ class SystemStatusWindow(QMainWindow):
 
         menu.addSeparator()
 
+        configure_action = menu.addAction(
+            "Configure System Status..."
+        )
+
+        menu.addSeparator()
+
         if self.locked:
             lock_action = menu.addAction(
                 "Unlock Widget"
@@ -526,7 +814,11 @@ class SystemStatusWindow(QMainWindow):
             event.globalPos()
         )
 
-        if selected == combined_action:
+        if selected == configure_action:
+            dialog = SettingsDialog(self)
+            dialog.exec()
+
+        elif selected == combined_action:
             self.storage_mode = "combined"
             self.settings.setValue(
                 "storage_mode",
