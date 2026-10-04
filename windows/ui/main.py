@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QProgressBar,
     QVBoxLayout,
     QWidget,
@@ -56,7 +57,14 @@ class SystemStatusWindow(QMainWindow):
         self.hardware = collect_hardware()
 
         self.setWindowTitle("System Status")
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.Tool
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
         self.resize(520, 500)
+
+        self._drag_position = None
 
         root = QWidget()
         self.setCentralWidget(root)
@@ -172,6 +180,36 @@ class SystemStatusWindow(QMainWindow):
 
         self.refresh()
 
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+
+        exit_action = menu.addAction("Exit System Status")
+        selected = menu.exec(event.globalPos())
+
+        if selected == exit_action:
+            QApplication.quit()
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_position = (
+                event.globalPosition().toPoint()
+                - self.frameGeometry().topLeft()
+            )
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if (
+            self._drag_position is not None
+            and event.buttons() & Qt.MouseButton.LeftButton
+        ):
+            self.move(
+                event.globalPosition().toPoint()
+                - self._drag_position
+            )
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_position = None
+        event.accept()
     def refresh(self):
         live = collect_live()
 
@@ -215,4 +253,8 @@ window = SystemStatusWindow()
 window.show()
 
 sys.exit(app.exec())
+
+
+
+
 
