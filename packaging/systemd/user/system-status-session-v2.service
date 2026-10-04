@@ -1,0 +1,13 @@
+[Unit]
+Description=System Status session telemetry service
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/system-status/status/system-status-sessiond-v2
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

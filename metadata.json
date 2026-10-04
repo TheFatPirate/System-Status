@@ -1,0 +1,17 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Name": "The Fat Pirate"
+      }
+    ],
+    "Category": "System Information",
+    "Description": "System hardware and network monitor with VPN-aware security status. SECURE indicates an active Proton VPN WireGuard connection; OFFLINE indicates the expected VPN connection is not active.",
+    "Icon": "computer",
+    "Id": "com.systemstatus.widget",
+    "Name": "System Status",
+    "Version": "1.0.0"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
+}

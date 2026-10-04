@@ -1,0 +1,167 @@
+<ns0:kcfg xmlns:ns0="http://www.kde.org/standards/kcfg/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0       http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+    <ns0:kcfgfile name="" />
+    <ns0:group name="General">
+        <ns0:entry name="refreshMs" type="Int">
+            <ns0:default>500</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showUnavailable" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showCategoryHeaders" type="Bool">
+            <ns0:default>true</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="compact" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showUnits" type="Bool">
+            <ns0:default>true</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showIcons" type="Bool">
+            <ns0:default>true</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="sensorLayoutJson" type="String">
+            <ns0:default>{"schema":1,"sensors":{}}</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showCpuTemperature" type="Bool">
+            <ns0:default>true</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuTemperature" type="Bool">
+            <ns0:default>true</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="temperatureUnit" type="String">
+            <ns0:default>C</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showCpuFrequency" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showRamUsedTotal" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuFanRpm" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuFanPercent" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuCoreClock" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuMemoryClock" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuPower" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuVoltage" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGpuVram" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageUsedAvailable" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageFilesystem" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showNetworkRx" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showNetworkTx" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showNetworkLinkSpeed" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGamingFps" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGamingFrametime" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGamingAverageFps" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGamingOneLow" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showGamingPointOneLow" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="usageWarning" type="Int">
+            <ns0:default>75</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="usageCritical" type="Int">
+            <ns0:default>90</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="cpuTempWarning" type="Int">
+            <ns0:default>80</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="cpuTempCritical" type="Int">
+            <ns0:default>90</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="gpuTempWarning" type="Int">
+            <ns0:default>85</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="gpuTempCritical" type="Int">
+            <ns0:default>95</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="warningColor" type="String">
+            <ns0:default>#ff9d00</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="criticalColor" type="String">
+            <ns0:default>#ff3030</ns0:default>
+        </ns0:entry>
+        <entry name="gpuDevice" type="String">
+            <default>auto</default>
+        </entry>
+        <entry name="networkDevice" type="String">
+            <default>auto</default>
+        </entry>
+        <ns0:entry name="storageTarget" type="String">
+            <ns0:default>storage.root</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="storageDevice" type="String">
+            <ns0:default>auto</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageDriveModel" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageDriveHealth" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageDriveTemperature" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageReadRate" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageWriteRate" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageReadIops" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStorageWriteIops" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStoragePowerCycles" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showStoragePowerOnHours" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showRamAvailable" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showRamFree" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showSwapUsedTotal" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+        <ns0:entry name="showSwapUsage" type="Bool">
+            <ns0:default>false</ns0:default>
+        </ns0:entry>
+    </ns0:group>
+</ns0:kcfg>

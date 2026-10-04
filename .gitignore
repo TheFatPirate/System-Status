@@ -1,0 +1,27 @@
+# Build and release output
+/build/
+/release/
+
+# CORE / command backups
+*.before-cmd*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# RPM build artifacts
+*.rpm
+*.src.rpm
+
+# Editor / OS junk
+*~
+*.swp
+*.swo
+.DS_Store

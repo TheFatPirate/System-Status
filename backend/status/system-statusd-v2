@@ -1,0 +1,510 @@
+#!/usr/bin/python3
+
+import json
+import os
+import signal
+import sys
+import time
+from pathlib import Path
+
+from registry import SensorRegistry
+from providers import system
+from providers import cpu
+from providers import memory
+from providers import amd
+from providers import storage
+from providers import network
+
+
+OUTPUT_DIR = Path("/run/system-status/status-v2")
+OUTPUT_FILE = OUTPUT_DIR / "status.json"
+
+POLL_INTERVAL = 2.0
+
+TIER_INTERVALS = {
+    "slow": 15.0,
+    "health": 300.0,
+}
+
+running = True
+
+tier_cache = {
+    "slow": {},
+    "health": {},
+}
+
+tier_last_run = {
+    "slow": None,
+    "health": None,
+}
+
+
+previous_cpu = None
+previous_network = None
+previous_storage = None
+previous_sample_time = None
+
+
+def stop(signum, frame):
+    global running
+    running = False
+
+
+def collect_provider(registry, provider):
+    try:
+        provider.collect(registry)
+    except Exception as exc:
+        print(
+            f"system-statusd-v2: "
+            f"{provider.__name__}: {exc}",
+            file=sys.stderr,
+        )
+
+
+def write_snapshot(registry):
+    OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+        mode=0o755,
+    )
+
+    snapshot = registry.snapshot()
+    temporary = OUTPUT_FILE.with_suffix(".tmp")
+
+    with temporary.open("w") as handle:
+        json.dump(
+            snapshot,
+            handle,
+            indent=2,
+            sort_keys=True,
+        )
+
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+    os.chmod(temporary, 0o644)
+    os.replace(temporary, OUTPUT_FILE)
+
+
+def collect_cpu_usage(registry, current):
+    global previous_cpu
+
+    if previous_cpu is None:
+        previous_cpu = current
+        return
+
+    usage = cpu.calculate_usage(
+        previous_cpu,
+        current,
+    )
+
+    previous_cpu = current
+
+    for name, value in usage.items():
+        if name == "cpu":
+            sensor_id = "cpu.total.usage"
+            display_name = "CPU Usage"
+        else:
+            core = name.removeprefix("cpu")
+            sensor_id = f"cpu.core.{core}.usage"
+            display_name = f"CPU Core {core} Usage"
+
+        registry.add(
+            sensor_id,
+            value,
+            name=display_name,
+            category="cpu",
+            unit="%",
+            minimum=0,
+            maximum=100,
+            source="/proc/stat",
+        )
+
+
+def collect_network_rates(
+    registry,
+    current,
+    elapsed,
+):
+    global previous_network
+
+    if previous_network is None:
+        previous_network = current
+        return
+
+    for interface, counters in current.items():
+        previous = previous_network.get(interface)
+
+        if previous is None:
+            continue
+
+        rx_now, tx_now = counters
+        rx_old, tx_old = previous
+
+        rx_rate = max(
+            0,
+            round((rx_now - rx_old) / elapsed),
+        )
+
+        tx_rate = max(
+            0,
+            round((tx_now - tx_old) / elapsed),
+        )
+
+        prefix = f"network.{interface}"
+
+        registry.add(
+            f"{prefix}.rx.rate",
+            rx_rate,
+            name=f"{interface} Receive Rate",
+            category="network",
+            unit="B/s",
+            source="sysfs",
+        )
+
+        registry.add(
+            f"{prefix}.tx.rate",
+            tx_rate,
+            name=f"{interface} Transmit Rate",
+            category="network",
+            unit="B/s",
+            source="sysfs",
+        )
+
+    previous_network = current
+
+
+def collect_storage_rates(
+    registry,
+    current,
+    elapsed,
+):
+    global previous_storage
+
+    if previous_storage is None:
+        previous_storage = current
+        return
+
+    for disk, counters in current.items():
+        previous = previous_storage.get(disk)
+
+        if previous is None:
+            continue
+
+        read_rate = max(
+            0,
+            round(
+                (
+                    counters["read_bytes"]
+                    - previous["read_bytes"]
+                ) / elapsed
+            ),
+        )
+
+        write_rate = max(
+            0,
+            round(
+                (
+                    counters["write_bytes"]
+                    - previous["write_bytes"]
+                ) / elapsed
+            ),
+        )
+
+        read_iops = max(
+            0,
+            round(
+                (
+                    counters["reads"]
+                    - previous["reads"]
+                ) / elapsed,
+                1,
+            ),
+        )
+
+        write_iops = max(
+            0,
+            round(
+                (
+                    counters["writes"]
+                    - previous["writes"]
+                ) / elapsed,
+                1,
+            ),
+        )
+
+        prefix = f"storage.{disk}"
+
+        registry.add(
+            f"{prefix}.read.rate",
+            read_rate,
+            name=f"{disk} Read Rate",
+            category="storage",
+            unit="B/s",
+            source="/proc/diskstats",
+        )
+
+        registry.add(
+            f"{prefix}.write.rate",
+            write_rate,
+            name=f"{disk} Write Rate",
+            category="storage",
+            unit="B/s",
+            source="/proc/diskstats",
+        )
+
+        registry.add(
+            f"{prefix}.read.iops",
+            read_iops,
+            name=f"{disk} Read IOPS",
+            category="storage",
+            unit="IOPS",
+            source="/proc/diskstats",
+        )
+
+        registry.add(
+            f"{prefix}.write.iops",
+            write_iops,
+            name=f"{disk} Write IOPS",
+            category="storage",
+            unit="IOPS",
+            source="/proc/diskstats",
+        )
+
+    previous_storage = current
+
+
+def tier_due(name, now):
+    last_run = tier_last_run[name]
+    interval = TIER_INTERVALS[name]
+
+    return (
+        last_run is None
+        or (now - last_run) >= interval
+    )
+
+
+def update_tier(name, now, collector):
+    if not tier_due(name, now):
+        return
+
+    tier_registry = SensorRegistry()
+
+    try:
+        collector(tier_registry)
+
+        tier_cache[name] = dict(
+            tier_registry.sensors
+        )
+
+        tier_last_run[name] = now
+
+    except Exception as exc:
+        print(
+            f"system-statusd-v2: "
+            f"{name} tier: {exc}",
+            file=sys.stderr,
+        )
+
+
+def merge_tiers(registry):
+    for cache in tier_cache.values():
+        registry.sensors.update(cache)
+
+
+def collect_slow_tier(registry):
+    storage.collect_filesystems(registry)
+
+    current_network = network.read_counters()
+
+    for interface in current_network:
+        speed_path = (
+            Path("/sys/class/net")
+            / interface
+            / "speed"
+        )
+
+        try:
+            speed = int(
+                speed_path.read_text().strip()
+            )
+        except (OSError, ValueError):
+            continue
+
+        if speed < 0:
+            continue
+
+        registry.add(
+            f"network.{interface}.link.speed",
+            speed,
+            name=f"{interface} Link Speed",
+            category="network",
+            unit="Mb/s",
+            source="sysfs",
+        )
+
+
+def collect_health_tier(registry):
+    storage.collect_smart(registry)
+
+
+def collect_snapshot():
+    global previous_sample_time
+
+    registry = SensorRegistry()
+
+    now = time.monotonic()
+
+    current_cpu = cpu.read_cpu_times()
+    current_network = network.read_counters()
+    current_storage = storage.read_diskstats()
+
+    elapsed = None
+
+    if previous_sample_time is not None:
+        elapsed = now - previous_sample_time
+
+    previous_sample_time = now
+
+    collect_provider(registry, system)
+    collect_provider(registry, memory)
+    collect_provider(registry, amd)
+
+    # CPU static telemetry.
+    try:
+        cpu.collect_frequency(registry)
+        cpu.collect_temperature(registry)
+    except Exception as exc:
+        print(
+            f"system-statusd-v2: cpu static: {exc}",
+            file=sys.stderr,
+        )
+
+    # Cached polling tiers.
+    update_tier(
+        "slow",
+        now,
+        collect_slow_tier,
+    )
+
+    update_tier(
+        "health",
+        now,
+        collect_health_tier,
+    )
+
+    merge_tiers(registry)
+
+    # Live network security state.
+    try:
+        import subprocess
+
+        vpn_secure = False
+
+        try:
+            output = subprocess.run(
+                [
+                    "nmcli",
+                    "-t",
+                    "-f",
+                    "DEVICE,TYPE,STATE",
+                    "device",
+                    "status",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            ).stdout
+
+            vpn_secure = (
+                "proton0:wireguard:connected"
+                in output
+            )
+
+        except (
+            OSError,
+            subprocess.SubprocessError,
+        ):
+            pass
+
+        registry.add(
+            "network.security",
+            "SECURE" if vpn_secure else "OFFLINE",
+            name="Network Security",
+            category="network",
+            source="NetworkManager",
+        )
+
+        registry.add(
+            "network.vpn.active",
+            vpn_secure,
+            name="VPN Active",
+            category="network",
+            source="NetworkManager",
+        )
+
+    except Exception as exc:
+        print(
+            f"system-statusd-v2: network state: {exc}",
+            file=sys.stderr,
+        )
+
+    collect_cpu_usage(
+        registry,
+        current_cpu,
+    )
+
+    if elapsed and elapsed > 0:
+        collect_network_rates(
+            registry,
+            current_network,
+            elapsed,
+        )
+
+        collect_storage_rates(
+            registry,
+            current_storage,
+            elapsed,
+        )
+    else:
+        global previous_network
+        global previous_storage
+
+        previous_network = current_network
+        previous_storage = current_storage
+
+    return registry
+
+
+def main():
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+    while running:
+        started = time.monotonic()
+
+        registry = collect_snapshot()
+
+        try:
+            write_snapshot(registry)
+        except Exception as exc:
+            print(
+                f"system-statusd-v2: "
+                f"snapshot write failed: {exc}",
+                file=sys.stderr,
+            )
+
+        elapsed = time.monotonic() - started
+        delay = max(
+            0,
+            POLL_INTERVAL - elapsed,
+        )
+
+        if delay:
+            time.sleep(delay)
+
+
+if __name__ == "__main__":
+    main()

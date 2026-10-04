@@ -1,0 +1,13 @@
+[Unit]
+Description=System Status hardware telemetry service
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/system-status/status/system-statusd-v2
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

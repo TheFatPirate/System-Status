@@ -1,0 +1,204 @@
+#!/usr/bin/python3
+
+import json
+import os
+import signal
+import sys
+import time
+from pathlib import Path
+
+from registry import SensorRegistry
+from providers import display
+from providers import gaming
+
+
+POLL_INTERVAL = 0.5
+
+TIER_INTERVALS = {
+    "fast": 0.5,
+    "normal": 2.0,
+    "slow": 15.0,
+}
+
+running = True
+
+tier_cache = {
+    "fast": {},
+    "normal": {},
+    "slow": {},
+}
+
+tier_last_run = {
+    "fast": None,
+    "normal": None,
+    "slow": None,
+}
+
+
+def stop(signum, frame):
+    global running
+    running = False
+
+
+def output_file():
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+
+    if not runtime:
+        raise RuntimeError(
+            "XDG_RUNTIME_DIR is unavailable"
+        )
+
+    path = (
+        Path(runtime)
+        / "system-status"
+        / "status-v2-session"
+        / "status.json"
+    )
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+        mode=0o700,
+    )
+
+    return path
+
+
+def tier_due(name, now):
+    last_run = tier_last_run[name]
+    interval = TIER_INTERVALS[name]
+
+    return (
+        last_run is None
+        or (now - last_run) >= interval
+    )
+
+
+def update_tier(name, now, collector):
+    if not tier_due(name, now):
+        return
+
+    registry = SensorRegistry()
+
+    try:
+        collector(registry)
+
+        tier_cache[name] = dict(
+            registry.sensors
+        )
+
+        tier_last_run[name] = now
+
+    except Exception as exc:
+        print(
+            f"system-status-sessiond-v2: "
+            f"{name} tier: {exc}",
+            file=sys.stderr,
+        )
+
+
+def collect_fast(registry):
+    gaming.collect_frame_telemetry(registry)
+
+
+def collect_normal(registry):
+    gaming.collect_state(registry)
+
+
+def collect_slow(registry):
+    display.collect(registry)
+    gaming.collect_capabilities(registry)
+
+
+def collect_snapshot():
+    now = time.monotonic()
+
+    update_tier(
+        "fast",
+        now,
+        collect_fast,
+    )
+
+    update_tier(
+        "normal",
+        now,
+        collect_normal,
+    )
+
+    update_tier(
+        "slow",
+        now,
+        collect_slow,
+    )
+
+    registry = SensorRegistry()
+
+    for cache in tier_cache.values():
+        registry.sensors.update(cache)
+
+    return registry
+
+
+def write_snapshot(registry):
+    path = output_file()
+    temporary = path.with_suffix(".tmp")
+
+    with temporary.open("w") as handle:
+        json.dump(
+            registry.snapshot(),
+            handle,
+            indent=2,
+            sort_keys=True,
+        )
+
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+    os.chmod(temporary, 0o600)
+    os.replace(temporary, path)
+
+
+def main():
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+    while running:
+        started = time.monotonic()
+
+        registry = collect_snapshot()
+
+        try:
+            write_snapshot(registry)
+        except Exception as exc:
+            print(
+                f"system-status-sessiond-v2: "
+                f"snapshot: {exc}",
+                file=sys.stderr,
+            )
+
+        elapsed = time.monotonic() - started
+
+        remaining = max(
+            0,
+            POLL_INTERVAL - elapsed,
+        )
+
+        deadline = time.monotonic() + remaining
+
+        while running:
+            left = deadline - time.monotonic()
+
+            if left <= 0:
+                break
+
+            time.sleep(
+                min(
+                    left,
+                    0.1,
+                )
+            )
+
+
+if __name__ == "__main__":
+    main()
