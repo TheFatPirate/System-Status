@@ -1,7 +1,7 @@
 ﻿import sys
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QSettings, QTimer, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -55,6 +55,7 @@ class SystemStatusWindow(QMainWindow):
         super().__init__()
 
         self.hardware = collect_hardware()
+        self.settings = QSettings("TheFatPirate", "SystemStatus")
 
         self.setWindowTitle("System Status")
         self.setWindowFlags(
@@ -65,6 +66,13 @@ class SystemStatusWindow(QMainWindow):
         self.resize(520, 500)
 
         self._drag_position = None
+        self.widget_locked = True
+
+        saved_x = self.settings.value("window_x", type=int)
+        saved_y = self.settings.value("window_y", type=int)
+
+        if saved_x is not None and saved_y is not None:
+            self.move(saved_x, saved_y)
 
         root = QWidget()
         self.setCentralWidget(root)
@@ -183,13 +191,33 @@ class SystemStatusWindow(QMainWindow):
     def contextMenuEvent(self, event):
         menu = QMenu(self)
 
+        if self.widget_locked:
+            lock_action = menu.addAction("Unlock Widget")
+        else:
+            lock_action = menu.addAction("Lock Widget")
+
+        menu.addSeparator()
         exit_action = menu.addAction("Exit System Status")
+
         selected = menu.exec(event.globalPos())
 
-        if selected == exit_action:
+        if selected == lock_action:
+            self.widget_locked = not self.widget_locked
+            self._drag_position = None
+
+            if self.widget_locked:
+                self.settings.setValue("window_x", self.x())
+                self.settings.setValue("window_y", self.y())
+                self.settings.sync()
+
+        elif selected == exit_action:
             QApplication.quit()
+
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
+        if (
+            not self.widget_locked
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
             self._drag_position = (
                 event.globalPosition().toPoint()
                 - self.frameGeometry().topLeft()
@@ -198,7 +226,8 @@ class SystemStatusWindow(QMainWindow):
 
     def mouseMoveEvent(self, event):
         if (
-            self._drag_position is not None
+            not self.widget_locked
+            and self._drag_position is not None
             and event.buttons() & Qt.MouseButton.LeftButton
         ):
             self.move(
@@ -253,6 +282,8 @@ window = SystemStatusWindow()
 window.show()
 
 sys.exit(app.exec())
+
+
 
 
 
