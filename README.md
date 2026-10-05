@@ -1,133 +1,62 @@
-# System Status
+﻿# System Status
 
-**System Status** is a KDE Plasma 6 desktop system-monitoring widget by **The Fat Pirate**.
+**System Status** is a lightweight desktop system-monitoring project by
+**The Fat Pirate**, available for Windows and Linux.
 
-It provides an at-a-glance view of hardware, resource usage, temperatures,
-storage, display information, gaming telemetry, network activity, and
-VPN-aware network security state.
+System Status provides at-a-glance information about system resources,
+hardware, storage, temperatures, network activity, and system state.
 
-## Features
+## Downloads
 
-System Status can expose telemetry including:
+### Windows 1.0.0
 
-- CPU usage, frequency, and temperature
-- RAM and swap usage
-- Storage usage and available storage information
-- Display resolution, refresh rate, brightness, HDR, VRR, and scale
-- Network receive and transmit activity
-- Network link speed
-- VPN security state
-- GameMode availability and state
-- MangoHud availability and gaming telemetry when available
+Windows users should download:
 
-Sensor availability depends on the hardware, drivers, desktop session, and
-optional utilities installed on the system.
+    SystemStatus-Windows-Setup-1.0.0.exe
 
-## VPN security indicator
+The Windows installer provides a normal desktop installation and does not
+require Python, PowerShell, or LibreHardwareMonitor to be installed separately.
 
-The network security indicator is intentionally VPN-aware.
+Windows features include:
 
-System Status 1.0.0 currently expects a Proton VPN WireGuard interface named:
+- CPU usage and temperature
+- RAM usage
+- GPU usage and temperature
+- Per-drive or combined storage monitoring
+- Live network upload and download activity
+- Network connection state
+- Configurable warning and critical thresholds
+- Configurable widget layout
+- Optional desktop shortcut
+- Optional automatic startup with Windows
+- Lockable and movable desktop widget
 
-    proton0
+See `windows/README.md` for Windows-specific information.
 
-When NetworkManager reports the expected Proton VPN WireGuard connection as
-active, the widget displays:
+### Linux 1.0.0
 
-    SECURE
+The Linux version is a KDE Plasma 6 desktop widget.
 
-When the expected VPN connection is not active, it displays:
+The current Linux release is built and validated for Fedora 44 x86_64 with
+KDE Plasma 6.
 
-    OFFLINE
+Linux release package:
 
-`OFFLINE` refers to the expected VPN security state. It does **not**
-necessarily mean the computer has lost ordinary internet connectivity.
+    system-status-widget-1.0.0-1.fc44.x86_64.rpm
 
-### Status colors
+The Linux implementation includes system and session telemetry services and
+integrates directly with KDE Plasma.
 
-- Green — `SECURE`
-- Red — `OFFLINE`
+See `linux/README.md` for Linux installation, telemetry, service, and
+configuration information.
 
-Hardware sensors retain their own warning and critical color behavior.
+## Platform layout
 
-## Requirements
+    linux/      Linux / KDE Plasma implementation
+    windows/    Windows implementation
 
-Core requirements:
-
-- KDE Plasma 6
-- Qt 6 / QML
-- NetworkManager
-- Python 3
-
-Optional tools can provide additional telemetry when available, including:
-
-- `smartctl`
-- `kscreen-doctor`
-- MangoHud
-- GameMode
-
-These optional tools are not required for the core widget to operate.
-
-## Fedora 44 RPM
-
-System Status 1.0.0 has been built and validated on:
-
-- Fedora 44 x86_64
-- KDE Plasma 6
-
-Install the binary RPM with:
-
-    sudo dnf install ./system-status-widget-1.0.0-1.fc44.x86_64.rpm
-
-The package installs and enables two telemetry services:
-
-    system-status-v2.service
-    system-status-session-v2.service
-
-The system service collects hardware and network telemetry.
-
-The user-session service collects session-specific information such as display
-and gaming telemetry.
-
-After installation, the widget is available in Plasma as:
-
-    System Status
-
-Add it to the desktop through Plasma's normal **Add Widgets** interface.
-
-## Verify services
-
-The system service can be checked with:
-
-    systemctl status system-status-v2.service
-
-The session service can be checked with:
-
-    systemctl --user status system-status-session-v2.service
-
-Both should normally be enabled. They are configured to start automatically
-for the appropriate system or graphical-session target.
-
-## Runtime telemetry
-
-System telemetry is written to:
-
-    /run/system-status/status-v2/status.json
-
-Session telemetry is written beneath the current user's runtime directory:
-
-    $XDG_RUNTIME_DIR/system-status/status-v2-session/status.json
-
-These files use JSON and are consumed by the Plasma widget through the
-System Status QML integration.
-
-## Release verification
-
-The release directory includes a `SHA256SUMS` file.
-
-Verify release artifacts with:
-
-    sha256sum -c SHA256SUMS
+The two implementations share the System Status project name and release
+version while using platform-specific backends and interfaces.
 
 ## License
 
@@ -135,6 +64,10 @@ System Status is released under the MIT License.
 
 See `LICENSE` for the full license text.
 
-## Author
+The Windows distribution includes LibreHardwareMonitor components under their
+applicable licenses. Third-party notices are included with the Windows source
+and installed application.
+
+## Maintainer
 
 **The Fat Pirate**

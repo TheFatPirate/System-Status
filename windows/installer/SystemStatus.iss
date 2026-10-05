@@ -1,5 +1,5 @@
 ﻿#define MyAppName "System Status"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "1.0.0"
 #define MyAppPublisher "The Fat Pirate"
 #define MyAppExeName "SystemStatus.exe"
 
@@ -49,4 +49,3 @@ Name: "{userstartup}\System Status"; Filename: "{app}\{#MyAppExeName}"; WorkingD
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch System Status"; Flags: nowait postinstall skipifsilent
-
