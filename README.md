@@ -1,140 +1,134 @@
 # System Status
 
-**System Status** is a KDE Plasma 6 desktop system-monitoring widget by **The Fat Pirate**.
+**System Status 1.0.0** is a cross-platform desktop system monitor for
+**Windows 11** and **Linux / KDE Plasma 6**, maintained by **The Fat Pirate**.
 
-It provides an at-a-glance view of hardware, resource usage, temperatures,
-storage, display information, gaming telemetry, network activity, and
-VPN-aware network security state.
+The Windows and Linux implementations share the same project and release, but
+each platform has its own native implementation.
 
-## Features
+---
 
-System Status can expose telemetry including:
+# Windows
 
-- CPU usage, frequency, and temperature
-- RAM and swap usage
-- Storage usage and available storage information
-- Display resolution, refresh rate, brightness, HDR, VRR, and scale
-- Network receive and transmit activity
-- Network link speed
-- VPN security state
-- GameMode availability and state
-- MangoHud availability and gaming telemetry when available
+## System Status for Windows 1.0.0
 
-Sensor availability depends on the hardware, drivers, desktop session, and
-optional utilities installed on the system.
+Windows users should download:
 
-## VPN security indicator
+    SystemStatus-Windows-Setup-1.0.0.exe
 
-The network security indicator is intentionally VPN-aware.
+The Windows version is a lightweight desktop widget providing:
 
-System Status 1.0.0 currently expects a Proton VPN WireGuard interface named:
+- CPU usage and temperature
+- RAM usage
+- GPU usage and temperature
+- GPU hotspot temperature when available
+- Individual or combined storage monitoring
+- Live network download and upload rates
+- ONLINE / SECURE / OFFLINE network status
+- Configurable warning and critical thresholds
+- Configurable widget layout
+- Movable and lockable desktop widget
+- Optional desktop shortcut
+- Optional automatic startup with Windows
 
-    proton0
+The installer includes the required runtime components. Python and
+LibreHardwareMonitor do not need to be installed separately.
 
-When NetworkManager reports the expected Proton VPN WireGuard connection as
-active, the widget displays:
+Windows source and documentation:
 
-    SECURE
+    windows/
 
-When the expected VPN connection is not active, it displays:
+See `windows/README.md` for additional Windows information.
 
-    OFFLINE
+---
 
-`OFFLINE` refers to the expected VPN security state. It does **not**
-necessarily mean the computer has lost ordinary internet connectivity.
+# Linux
 
-### Status colors
+## System Status for Linux 1.0.0
 
-- Green — `SECURE`
-- Red — `OFFLINE`
+The Linux version is a KDE Plasma 6 desktop widget.
 
-Hardware sensors retain their own warning and critical color behavior.
-
-## Requirements
-
-Core requirements:
-
-- KDE Plasma 6
-- Qt 6 / QML
-- NetworkManager
-- Python 3
-
-Optional tools can provide additional telemetry when available, including:
-
-- `smartctl`
-- `kscreen-doctor`
-- MangoHud
-- GameMode
-
-These optional tools are not required for the core widget to operate.
-
-## Fedora 44 RPM
-
-System Status 1.0.0 has been built and validated on:
+It has been built and validated on:
 
 - Fedora 44 x86_64
 - KDE Plasma 6
 
-Install the binary RPM with:
+Linux users should download:
+
+    system-status-widget-1.0.0-1.fc44.x86_64.rpm
+
+Install with:
 
     sudo dnf install ./system-status-widget-1.0.0-1.fc44.x86_64.rpm
 
-The package installs and enables two telemetry services:
+Linux features include:
+
+- CPU usage, frequency, and temperature
+- RAM and swap usage
+- Storage telemetry
+- Display resolution, refresh rate, brightness, HDR, VRR, and scale
+- Network receive and transmit activity
+- Network link speed
+- VPN-aware network security state
+- GameMode availability and state
+- MangoHud availability and gaming telemetry
+- Separate system and graphical-session telemetry services
+
+Linux source:
+
+    linux/
+
+The Linux telemetry services are:
 
     system-status-v2.service
     system-status-session-v2.service
 
-The system service collects hardware and network telemetry.
+---
 
-The user-session service collects session-specific information such as display
-and gaming telemetry.
+# Repository layout
 
-After installation, the widget is available in Plasma as:
+    System-Status/
+    |
+    +-- linux/          Linux / KDE Plasma 6 implementation
+    |   +-- backend/
+    |   +-- contents/
+    |   +-- packaging/
+    |   `-- metadata.json
+    |
+    +-- windows/        Windows 11 implementation
+    |   +-- backend/
+    |   +-- ui/
+    |   +-- installer/
+    |   +-- runtime/
+    |   `-- licenses/
+    |
+    +-- SystemStatus.spec
+    +-- LICENSE
+    `-- README.md
 
-    System Status
+# Release
 
-Add it to the desktop through Plasma's normal **Add Widgets** interface.
+System Status 1.0.0 provides both Windows and Linux builds under the same
+release.
 
-## Verify services
+Windows:
 
-The system service can be checked with:
+    SystemStatus-Windows-Setup-1.0.0.exe
 
-    systemctl status system-status-v2.service
+Linux:
 
-The session service can be checked with:
+    system-status-widget-1.0.0-1.fc44.x86_64.rpm
 
-    systemctl --user status system-status-session-v2.service
-
-Both should normally be enabled. They are configured to start automatically
-for the appropriate system or graphical-session target.
-
-## Runtime telemetry
-
-System telemetry is written to:
-
-    /run/system-status/status-v2/status.json
-
-Session telemetry is written beneath the current user's runtime directory:
-
-    $XDG_RUNTIME_DIR/system-status/status-v2-session/status.json
-
-These files use JSON and are consumed by the Plasma widget through the
-System Status QML integration.
-
-## Release verification
-
-The release directory includes a `SHA256SUMS` file.
-
-Verify release artifacts with:
-
-    sha256sum -c SHA256SUMS
-
-## License
+# License
 
 System Status is released under the MIT License.
 
 See `LICENSE` for the full license text.
 
-## Author
+The Windows distribution includes LibreHardwareMonitor components under their
+applicable licenses. Third-party notices are included under `windows/licenses/`
+and `windows/THIRD-PARTY-NOTICES.md`.
+
+# Maintainer
 
 **The Fat Pirate**
