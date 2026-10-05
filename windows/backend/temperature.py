@@ -10,21 +10,62 @@ _sensor_type = None
 
 
 def _find_lhm():
-    base = (
-        Path(os.environ["LOCALAPPDATA"])
-        / "Microsoft"
-        / "WinGet"
-        / "Packages"
-    )
+    candidates = []
 
-    matches = list(
-        base.glob(
-            "LibreHardwareMonitor.LibreHardwareMonitor_*"
-            "/LibreHardwareMonitorLib.dll"
+    # PyInstaller bundle/runtime location.
+    if getattr(sys, "frozen", False):
+        bundle_root = Path(
+            getattr(sys, "_MEIPASS", Path(sys.executable).parent)
         )
+
+        candidates.extend(
+            (
+                bundle_root
+                / "runtime"
+                / "LibreHardwareMonitorLib.dll",
+
+                Path(sys.executable).parent
+                / "runtime"
+                / "LibreHardwareMonitorLib.dll",
+            )
+        )
+
+    # Source-tree development location:
+    # windows/backend/temperature.py -> windows/runtime/
+    candidates.append(
+        Path(__file__).resolve().parents[1]
+        / "runtime"
+        / "LibreHardwareMonitorLib.dll"
     )
 
-    return matches[0] if matches else None
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    # Development fallback for machines where LHM was installed
+    # separately through WinGet.
+    local_appdata = os.environ.get("LOCALAPPDATA")
+
+    if local_appdata:
+        base = (
+            Path(local_appdata)
+            / "Microsoft"
+            / "WinGet"
+            / "Packages"
+        )
+
+        if base.exists():
+            matches = list(
+                base.glob(
+                    "LibreHardwareMonitor.LibreHardwareMonitor_*"
+                    "/LibreHardwareMonitorLib.dll"
+                )
+            )
+
+            if matches:
+                return matches[0]
+
+    return None
 
 
 def _walk(hardware):

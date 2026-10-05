@@ -25,3 +25,14 @@ Makefile
 *.swp
 *.swo
 .DS_Store
+
+# Windows / PyInstaller output
+/dist/
+
+# Python virtual environments
+.venv/
+venv/
+
+# Windows junk
+Thumbs.db
+Desktop.ini
