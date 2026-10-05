@@ -1,4 +1,4 @@
-﻿# System Status for Windows
+# System Status for Windows
 
 **System Status for Windows 1.0.0** is the Windows desktop implementation of
 System Status by **The Fat Pirate**.
@@ -80,7 +80,7 @@ drivers, and sensor accessibility of the individual PC.
     installer/     Windows installer definition
     licenses/      Third-party license material
 
-The Linux/KDE Plasma implementation remains separate under `linux/`.
+The Linux/KDE Plasma implementation remains separate on the `main` branch.
 
 ## Third-party software
 

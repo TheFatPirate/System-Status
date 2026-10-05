@@ -1,4 +1,4 @@
-﻿# System Status
+# System Status
 
 **System Status** is a lightweight desktop system-monitoring project by
 **The Fat Pirate**, available for Windows and Linux.
@@ -47,12 +47,12 @@ Linux release package:
 The Linux implementation includes system and session telemetry services and
 integrates directly with KDE Plasma.
 
-See `linux/README.md` for Linux installation, telemetry, service, and
+See the `main` branch README for Linux installation, telemetry, service, and
 configuration information.
 
 ## Platform layout
 
-    linux/      Linux / KDE Plasma implementation
+    main        Linux / KDE Plasma implementation (default branch)
     windows/    Windows implementation
 
 The two implementations share the System Status project name and release
